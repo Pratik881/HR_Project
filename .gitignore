@@ -1,4 +1,5 @@
 # Ignore sensitive config
+appsettings.json
 
 appsettings.Development.json
 
