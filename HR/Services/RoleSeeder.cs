@@ -29,7 +29,6 @@ namespace HR.Services
                     FullName = "System Admin",
                     EmailConfirmed = true
                 };
-
                 var result = await userManager.CreateAsync(user, "Admin@123");
 
                 if (result.Succeeded)

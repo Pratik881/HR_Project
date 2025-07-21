@@ -6,7 +6,7 @@ namespace HR.Interfaces
 {
     public interface IAuthService
     {
-        Task<ServiceResponse<ApplicationUser>> RegisterUserAsync(RegisterDto dto);
+        Task<ServiceResponse<string>> RegisterUserAsync(RegisterDto dto);
         Task<ServiceResponse<LoginResponse>> LoginUserAsync(LoginDto dto);
         Task<ServiceResponse<string>> ForgetPasswordServiceAsync(ForgetPasswordDto dto);
         Task<ServiceResponse<string>> ResetPasswordAsync(ResetPasswordDto dto);

@@ -3,25 +3,27 @@
     public class Employee
     {
         public int  Id { get; set; }
-        public string FullName { get; set; }
-        
-        public string Email { get; set; }   
+        //Non-nullable property 'FullName' must contain a non-null value when exiting constructor.
+        //public string FullName { get; set; } 
+        //string is non-nullable as by default as set in .csproj file.
+        //but c# needs guarentee : either assign a value immediately, mark it required, give a default(=""), make nullable string?
 
-        public string PhoneNumber { get; set; }
+        public required string FullName { get; set; }
 
-        public string Password { get; set; }
+        public required string Email { get; set; }
+        public required string PhoneNumber { get; set; }
 
-        public string Department { get; set; }
+        public required string Department { get; set; }
 
-        public string Position { get; set; }
-
+        public required string Position { get; set; }
+       //value type haru non-nullable by default.C# assigns a default value on its own.
         public DateTime DateOfJoining { get; set; }
 
         public decimal Salary { get; set; }
 
         public int LeavePoints { get; set; } = 20;
-        public string ApplicationUserId{ get; set; }
+        public  required string ApplicationUserId{ get; set; }
 
-        public ApplicationUser ApplicationUser { get; set; }
+        public   ApplicationUser ApplicationUser { get; set; }
     }
 }

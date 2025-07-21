@@ -1,4 +1,6 @@
-﻿namespace HR.Utilities
+﻿using HR.Models;
+
+namespace HR.Utilities
 {
     public class ServiceResponse<T>
     {
@@ -12,5 +14,7 @@
 
         public static ServiceResponse<T> Ok(T data, string? message = null) =>
             new ServiceResponse<T> { Success = true, Data = data, Message = message ?? string.Empty };
+
+        
     }
 }

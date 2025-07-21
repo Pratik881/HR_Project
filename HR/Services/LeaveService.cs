@@ -1,25 +1,20 @@
-﻿using Microsoft.EntityFrameworkCore;
-using HR.Data;
-using HR.Models;
-using HR.DTO;
-using HR.Utilities;
+﻿using HR.DTO;
 using HR.Interfaces;
+using HR.Models;
+using HR.UoW;
+using HR.Utilities;
+
 namespace HR.Services
 {
-    public class LeaveService: ILeaveService
+    public class LeaveService(IUnitOfWork unitOfWork) : ILeaveService
     {
-        private readonly AppDbContext _context;
-
-        public LeaveService(AppDbContext context)
-        {
-            _context = context;
-        }
-
+        private readonly IUnitOfWork _unitOfWork = unitOfWork;
+       
         public async Task<ServiceResponse<string>> ApplyForLeave(int employeeId, DateTime startDate, DateTime endDate, string reason)
         {
             var response = new ServiceResponse<string>();
 
-            var employee = await _context.Employees.FindAsync(employeeId);
+            var employee = await _unitOfWork.Employees.GetByIdAsync(employeeId);
             if (employee == null)
             {
                 response.Success = false;
@@ -63,31 +58,32 @@ namespace HR.Services
                 RequestedAt = DateTime.Now
             };
 
-            _context.Leaves.Add(leave);
-            await _context.SaveChangesAsync();
+            await _unitOfWork.Leaves.AddAsync(leave);
+            await _unitOfWork.SaveChangesAsync();
 
             response.Data = $"Leave request submitted. Paid Days: {paidDays}, Unpaid Days: {unpaidDays}";
             return response;
         }
+
         public async Task<ServiceResponse<List<LeaveRequestDto>>> ViewPendingLeaveRequestsAsync()
         {
-            
-            var pendingLeaves = await _context.Leaves
-        .Where(l => l.Status == LeaveStatus.Pending)
-        .Include(l => l.Employee) // Include navigation property
-        .Select(l => new LeaveRequestDto
-        {
-            Id = l.Id,
-            StartDate = l.StartDate,
-            EndDate = l.EndDate,
-            Reason = l.Reason,
-            RequestedAt = l.RequestedAt,
-            PaidLeaveDays = l.PaidLeaveDays,
-            UnpaidLeaveDays = l.UnpaidLeaveDays,
-            EmployeeId = l.ApplicationUserId,
-            EmployeeName = l.Employee.FullName
-        })
-        .ToListAsync();
+            var pendingLeavesEntities = await _unitOfWork.Leaves.GetLeavesByStatusAsync(LeaveStatus.Pending);
+
+            var pendingLeaves = pendingLeavesEntities
+                .Select(l => new LeaveRequestDto
+                {
+                    Id = l.Id,
+                    StartDate = l.StartDate,
+                    EndDate = l.EndDate,
+                    Reason = l.Reason,
+                    RequestedAt = l.RequestedAt,
+                    PaidLeaveDays = l.PaidLeaveDays,
+                    UnpaidLeaveDays = l.UnpaidLeaveDays,
+                    EmployeeId = l.ApplicationUserId,
+                    EmployeeName = l.Employee?.FullName ?? ""
+                })
+                .ToList();
+
             return ServiceResponse<List<LeaveRequestDto>>.Ok(pendingLeaves, "Fetched pending leave requests.");
         }
 
@@ -95,7 +91,7 @@ namespace HR.Services
         {
             var response = new ServiceResponse<string>();
 
-            var leave = await _context.Leaves.FindAsync(leaveId);
+            var leave = await _unitOfWork.Leaves.GetByIdAsync(leaveId);
             if (leave == null)
             {
                 response.Success = false;
@@ -114,7 +110,7 @@ namespace HR.Services
 
             if (newStatus == LeaveStatus.Rejected)
             {
-                var employee = await _context.Employees.FirstOrDefaultAsync(e => e.Id == leave.ApplicationUserId);
+                var employee = await _unitOfWork.Employees.GetByIdAsync(leave.ApplicationUserId);
                 if (employee != null)
                 {
                     int numberOfDays = (leave.EndDate - leave.StartDate).Days + 1;
@@ -122,7 +118,8 @@ namespace HR.Services
                 }
             }
 
-            await _context.SaveChangesAsync();
+            await _unitOfWork.SaveChangesAsync();
+
             response.Data = $"Leave has been {newStatus.ToString().ToLower()} successfully.";
             return response;
         }
@@ -131,20 +128,17 @@ namespace HR.Services
         {
             var response = new ServiceResponse<List<LeaveSummaryDto>>();
 
-            var employeeId = await _context.Employees
-                .Where(e => e.ApplicationUserId == applicationUserId)
-                .Select(e => e.Id)
-                .FirstOrDefaultAsync();
-
-            if (employeeId == 0)
+            var employee = await _unitOfWork.Employees.GetByApplicationUserIdAsync(applicationUserId);
+            if (employee == null)
             {
                 response.Success = false;
                 response.Message = "Employee not found.";
                 return response;
             }
 
-            var leaves = await _context.Leaves
-                .Where(l => l.ApplicationUserId == employeeId)
+            var leaves = await _unitOfWork.Leaves.GetLeavesByEmployeeIdAsync(employee.Id);
+
+            var leaveSummaries = leaves
                 .OrderByDescending(l => l.StartDate)
                 .Select(l => new LeaveSummaryDto
                 {
@@ -152,12 +146,11 @@ namespace HR.Services
                     UnpaidLeaveDays = l.UnpaidLeaveDays,
                     LeaveStatus = l.Status.ToString(),
                     LeavesTakenThisYear = l.StartDate.Year == DateTime.Now.Year ? 1 : 0,
-                    
                 })
-                .ToListAsync();
+                .ToList();
 
-            response.Data = leaves;
-            response.Message = leaves.Count > 0 ? "Leave history retrieved." : "No leave records found.";
+            response.Data = leaveSummaries;
+            response.Message = leaveSummaries.Count > 0 ? "Leave history retrieved." : "No leave records found.";
             return response;
         }
 
@@ -165,9 +158,7 @@ namespace HR.Services
         {
             var response = new ServiceResponse<LeaveSummaryDto>();
 
-            var employee = await _context.Employees
-                .FirstOrDefaultAsync(e => e.ApplicationUserId == applicationUserId);
-
+            var employee = await _unitOfWork.Employees.GetByApplicationUserIdAsync(applicationUserId);
             if (employee == null)
             {
                 response.Success = false;
@@ -175,11 +166,8 @@ namespace HR.Services
                 return response;
             }
 
+            var leaves = await _unitOfWork.Leaves.GetLeavesByEmployeeIdAsync(employee.Id);
             var currentYear = DateTime.Now.Year;
-
-            var leaves = await _context.Leaves
-                .Where(l => l.ApplicationUserId == employee.Id)
-                .ToListAsync();
 
             response.Data = new LeaveSummaryDto
             {
@@ -197,23 +185,14 @@ namespace HR.Services
             return response;
         }
 
-
         public async Task<ServiceResponse<List<DepartmentLeaveSummaryDTO>>> GetDepartmentLeaveSummariesAsync(DateTime queryDate)
         {
             var response = new ServiceResponse<List<DepartmentLeaveSummaryDTO>>();
 
-            // Get all employees with their leaves and ApplicationUser data
-            var employees = await _context.Employees
-                .Include(e => e.ApplicationUser)
-                .ToListAsync();
+            var employees = await _unitOfWork.Employees.GetAllAsync();
 
-            // Get all approved leaves for the given date
-            var leaves = await _context.Leaves
-                .Where(l => l.Status == LeaveStatus.Approved &&
-                            l.StartDate <= queryDate && l.EndDate >= queryDate)
-                .ToListAsync();
+            var leaves = await _unitOfWork.Leaves.GetApprovedLeavesForDateAsync(queryDate, LeaveStatus.Approved);
 
-            // Group employees by department
             var departmentGroups = employees
                 .GroupBy(e => e.Department)
                 .Select(g =>
@@ -228,9 +207,7 @@ namespace HR.Services
                         .Distinct()
                         .ToList();
 
-                    // Check for conflict: overlapping leaves
                     bool hasConflict = false;
-
                     for (int i = 0; i < deptLeaves.Count; i++)
                     {
                         for (int j = i + 1; j < deptLeaves.Count; j++)
@@ -264,10 +241,5 @@ namespace HR.Services
             response.Success = true;
             return response;
         }
-
-
-
-
     }
-
 }

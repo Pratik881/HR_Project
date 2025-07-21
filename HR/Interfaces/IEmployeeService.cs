@@ -10,6 +10,7 @@ namespace HR.Interfaces
         Task<ServiceResponse<List<Employee>>> GetAllEmployees();
 
         Task<ServiceResponse<Employee>> GetEmployeeById(int id);
+        Task<ServiceResponse<Employee>> GetEmployeeByUserId(string userId);
 
        Task<ServiceResponse<string>> UpdateEmployee(Employee employee);
 

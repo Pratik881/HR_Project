@@ -1,35 +1,25 @@
-﻿using HR.Data;
-using HR.DTO;
-using HR.Models;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
+﻿using HR.Models;
 using HR.Utilities;
 using HR.Interfaces;
+using HR.UoW;
 
 namespace HR.Services
 {
-    public class EmployeeService:IEmployeeService
+    public class EmployeeService(IUnitOfWork unitOfWork) : IEmployeeService
     {
-        private readonly AppDbContext _context;
-        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IUnitOfWork _unitOfWork = unitOfWork;
+        
 
-        public EmployeeService(AppDbContext context, UserManager<ApplicationUser> userManager)
-        {
-            _context = context;
-            _userManager = userManager;
-        }
-
-        // Get all employees
         public async Task<ServiceResponse<List<Employee>>> GetAllEmployees()
         {
-            var employees = await _context.Employees.ToListAsync();
+            var employees = await  _unitOfWork.Employees.GetAllAsync();
             return ServiceResponse<List<Employee>>.Ok(employees); // Return all employees
         }
 
         // Get employee by ID
-        public async Task<ServiceResponse<Employee>> GetEmployeeById(int id)
+        public async Task<ServiceResponse<Employee>> GetEmployeeByUserId(string userId)
         {
-            var employee = await _context.Employees.FindAsync(id);
+            var employee =await  _unitOfWork.Employees.GetByApplicationUserIdAsync(userId);
             if (employee == null)
             {
                 return ServiceResponse<Employee>.Fail("Employee not found.");
@@ -40,29 +30,44 @@ namespace HR.Services
         // Update employee
         public async Task<ServiceResponse<string>> UpdateEmployee(Employee employee)
         {
-            var existingEmployee = await _context.Employees.FindAsync(employee.Id);
+            var existingEmployee = await _unitOfWork.Employees.GetByIdAsync(employee.Id);
+
             if (existingEmployee == null)
             {
                 return ServiceResponse<string>.Fail("Employee not found.");
             }
 
-            _context.Employees.Update(employee);
-            await _context.SaveChangesAsync();
+           _unitOfWork.Employees.UpdateEmployeeAsync(employee);
+            await _unitOfWork.SaveChangesAsync();
             return ServiceResponse<string>.Ok("Employee updated successfully.");
         }
 
         // Delete employee by ID
         public async Task<ServiceResponse<string>> DeleteEmployeeById(int id)
         {
-            var employee = await _context.Employees.FindAsync(id);
+            var employee = await _unitOfWork.Employees.GetByIdAsync(id);
             if (employee == null)
             {
                 return ServiceResponse<string>.Fail("Employee not found.");
             }
 
-            _context.Employees.Remove(employee);
-            await _context.SaveChangesAsync();
+            _unitOfWork.Employees.DeleteEmployeeAsync(employee);
+            await _unitOfWork.SaveChangesAsync();
             return ServiceResponse<string>.Ok("Employee deleted successfully.");
         }
+
+        public async Task<ServiceResponse<Employee>> GetEmployeeById(int id)
+        {
+            var employee = await _unitOfWork.Employees.GetByIdAsync(id);
+            if (employee == null)
+            {
+                return ServiceResponse<Employee>.Fail("Employee not found.");
+            }
+            else
+            {
+                 return ServiceResponse<Employee>.Ok(employee);
+            }
+        }
+
     }
 }

@@ -6,31 +6,26 @@ using HR.Utilities;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 using System.Formats.Asn1;
+using System.Net;
 
 namespace HR.Services
 {
-    public class AuthServices:IAuthService
+    public class AuthServices(UserManager<ApplicationUser> userManager, AppDbContext context, RoleManager<IdentityRole> roleManager, IJwtTokenService jwtTokenService, IConfiguration configuration, IEmailService emailService) : IAuthService
     {
 
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly AppDbContext _context;
-        private readonly RoleManager<IdentityRole> _roleManager;
-        private readonly IJwtTokenService _jwtTokenService;
-        private readonly IConfiguration _configuration;
-        private readonly IEmailService _emailService;
-        public AuthServices(UserManager<ApplicationUser> userManager, AppDbContext context, RoleManager<IdentityRole> roleManager, IJwtTokenService jwtTokenService, IConfiguration configuration, IEmailService emailService)
-        {
-            _userManager = userManager;
-            _context = context;
-            _roleManager = roleManager;
-            _jwtTokenService = jwtTokenService;
-            _configuration = configuration;
-            _emailService = emailService;
-        }
+        private readonly UserManager<ApplicationUser> _userManager = userManager;
+        private readonly AppDbContext _context = context;
+        private readonly IJwtTokenService _jwtTokenService = jwtTokenService;
+        private readonly IConfiguration _configuration = configuration;
+        private readonly IEmailService _emailService = emailService;
 
-
-        public async Task<ServiceResponse<ApplicationUser>> RegisterUserAsync(RegisterDto dto)
+        public async Task<ServiceResponse<string>> RegisterUserAsync(RegisterDto dto)
         {
+            var existingUser = await _userManager.FindByEmailAsync(dto.Email);
+            if (existingUser != null)
+            {
+                return ServiceResponse<string>.Fail("User with this email already exists");
+            }
             var user = new ApplicationUser
             {
                 UserName = dto.Email,
@@ -40,19 +35,24 @@ namespace HR.Services
 
             };
 
-            var result = await _userManager.CreateAsync(user, dto.Password);
+            var result = await _userManager.CreateAsync(user);
             if (!result.Succeeded)
             {
-                return ServiceResponse<ApplicationUser>.Fail(string.Join(";", result.Errors.Select(e => e.Description)));
+                return ServiceResponse<string>.Fail(string.Join(";", result.Errors.Select(e => e.Description)));
             }
-            await _userManager.AddToRoleAsync(user, "Employee");
+            await _userManager.AddToRoleAsync(user,dto.Role);
 
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+
+             var resetLink = $"{_configuration["AppUrl"]}/reset-password?email={user.Email}&token={Uri.EscapeDataString(token)}";
+             Console.WriteLine($"[ResetLink] Generated password reset link for {user.Email}: {resetLink}");
+              await _emailService.SendEmailAsync(user.Email, "Set your password",
+      $"Hello {user.FullName},<br><br>To set your password, please click the link below:<br><a href='{resetLink}'>Reset Password</a>");
             var employee = new Employee
             {
                 FullName = dto.FullName,
                 Email = dto.Email,
                 PhoneNumber = dto.PhoneNumber,
-                Password = dto.Password,
                 Department = dto.Department,
                 Position = dto.Position,
                 DateOfJoining = dto.DateOfJoining,
@@ -62,17 +62,7 @@ namespace HR.Services
 
             _context.Employees.Add(employee);
             await _context.SaveChangesAsync();
-            await _emailService.SendEmailAsync(dto.Email, "Welcome to HR System",
-                $@"
-    <h2>Welcome {dto.FullName}!</h2>
-    <p>Your account has been created.</p>
-    <p><b>Username:</b> {dto.Email}</p>
-    <p><b>Temporary Password:</b> {dto.Password}</p>
-    <p>Please login and change your password.</p>
-    <p>Login Link: https://yourapp.com/login</p>
-");
-            return ServiceResponse<ApplicationUser>.Ok(user, "User registered successfully and employee created.");
-
+            return ServiceResponse<string>.Ok("User registered successfully and employee created.");
 
         }
 
@@ -113,6 +103,7 @@ namespace HR.Services
             }
 
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            //To make token safe for use inside URL query parameters without corruption
             var encodedToken = Uri.EscapeDataString(token);
             var resetLink = $"{_configuration["AppUrl"]}/reset-password?email={dto.Email}&token={encodedToken}";
 
@@ -130,8 +121,9 @@ namespace HR.Services
             {
                 return ServiceResponse<string>.Fail("User not found.");
             }
+             var decodedToken = WebUtility.UrlDecode(dto.Token);
 
-            var result = await _userManager.ResetPasswordAsync(user, dto.Token, dto.NewPassword);
+            var result = await _userManager.ResetPasswordAsync(user, decodedToken, dto.NewPassword);
             if (result.Succeeded)
             {
                 return ServiceResponse<string>.Ok("Password reset successful.");
@@ -141,7 +133,6 @@ namespace HR.Services
                 var errors = string.Join(", ", result.Errors.Select(e => e.Description));
                 return ServiceResponse<string>.Fail($"Password reset failed: {errors}");
             }
-
 
         }
     }
