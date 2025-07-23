@@ -83,7 +83,7 @@ Repos/
         ├── Repository/
         ├── UoW/
         ├── Utitlities/
-        └── appsettings.json (Dummy - pushed)
+        └── appsettings.example.json
 ```
 
 ## 🚀 Getting Started
@@ -95,7 +95,7 @@ cd HR/HR
 ```
 
 ### 2. Configure the Database
-- Update your real connection string in `appsettings.LocalBackup.json`
+- Update your real connection string in `appsettings.example.json`
 - Run the database migrations:
 ```bash
 dotnet ef database update
