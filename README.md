@@ -1,6 +1,6 @@
 # HR Management System
 
-An ASP.NET Core-based HR Management System that helps streamline employee management, leave tracking, and secure access control for Admins, HR personnel, and Employees.
+An ASP.NET Core-based HR Management System that helps streamline employee management, leave tracking, and secure access control for Admins, HR personnel, and Employees.BBuilt using Clean Architecture principles with Repository and Unit of Work patterns for maintainability and scalability.
 
 ## 📌 Features
 
@@ -33,11 +33,6 @@ An ASP.NET Core-based HR Management System that helps streamline employee manage
 - Email alerts sent for account registration, password reset
 - Configured using Gmail SMTP
 
-### ⚙️ Architecture & Practices
-- ASP.NET Core Web API with Clean Architecture using DTOs, Interfaces, and Service layer abstraction
-- Entity Framework Core (Code First)
-- JWT for stateless authentication
-- Swagger integration for API testing
 
 ## 🏗️ Technologies Used
 
@@ -48,7 +43,29 @@ An ASP.NET Core-based HR Management System that helps streamline employee manage
 - SMTP (Gmail) for emails
 - Swagger / Swashbuckle
 
+⚙️ Architecture & Best Practices
 
+    ✅ Clean Architectur
+
+        Layered separation (API, Application, Domain, Infrastructure)
+
+        DTOs and Interfaces for loose coupling
+
+    ✅ Repository Pattern
+
+        Abstraction over EF Core for maintainable data access
+
+    ✅ Unit of Work Pattern
+
+        Ensures atomic operations and transaction management
+
+    ✅ Service Layer
+
+        Business logic abstraction using interfaces
+
+    ✅ Swagger Integration
+
+        Interactive API documentation and testing
 ## 📁 Project Structure
 
 ```
@@ -62,8 +79,10 @@ Repos/
         ├── Services/
         ├── Interfaces/
         ├── Data/
-        ├── Services
-        ├── Utilities
+        ├── Services/
+        ├── Repository/
+        ├── UoW/
+        ├── Utitlities/
         └── appsettings.json (Dummy - pushed)
 ```
 
