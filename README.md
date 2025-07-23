@@ -82,7 +82,7 @@ Repos/
         ├── Services/
         ├── Repository/
         ├── UoW/
-        ├── Utitlities/
+        ├── Utilities/
         └── appsettings.example.json
 ```
 
